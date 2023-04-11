@@ -70,7 +70,7 @@ public class JavaSchoolStarter {
         return res;
     }
 
-    private List<String> parseFromCommandToWhere(String command) {
+    private List<String> parseFromCommandToWhere(String command) throws Exception {
         List<String> res = new ArrayList<>();
         Pattern selectOrDeletePattern = Pattern.compile("(select|delete)(.*?)(?:where|$)",
                 Pattern.CASE_INSENSITIVE);
@@ -80,10 +80,18 @@ public class JavaSchoolStarter {
             String[] fields = selectOrDeleteFields.split("\\s*,\\s*");
             res.addAll(Arrays.asList(fields));
         }
+        if (res.size() != 0 && res.get(0).equals("")) {
+            return new ArrayList<>();
+        }
+        for (String in : res) {
+            if (canHave.stream().noneMatch(e -> e.equalsIgnoreCase(in))) {
+                throw new Exception("Bad field");
+            }
+        }
         return res;
     }
 
-    private Map<String, Object> parseToUpdate(String command) {
+    private Map<String, Object> parseToUpdate(String command) throws Exception {
         Map<String, Object> res = new HashMap<>();
         Pattern pattern = Pattern.compile("update\\s*values\\s*(.*?)\\s*(?:where|$)", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(command);
@@ -97,6 +105,9 @@ public class JavaSchoolStarter {
             }
         }
         for (Map.Entry<String, Object> in : res.entrySet()) {
+            if (canHave.stream().noneMatch(e -> e.equalsIgnoreCase(in.getKey()))) {
+                throw new Exception("Bad field");
+            }
             if (in.getValue().equals("null")) {
                 res.put(in.getKey(), null);
             }
@@ -104,7 +115,7 @@ public class JavaSchoolStarter {
         return res;
     }
 
-    private List<List<String>> parseSelectFromWhereToEnd(String command) {
+    private List<List<String>> parseSelectFromWhereToEnd(String command) throws Exception {
         List<List<String>> res = new ArrayList<>();
         Pattern wherePattern = Pattern.compile("where (.*)", Pattern.CASE_INSENSITIVE);
         Matcher whereMatcher = wherePattern.matcher(command);
@@ -124,7 +135,11 @@ public class JavaSchoolStarter {
                 }
                 firstCondition = false;
                 List<String> temp = new ArrayList<>();
-                temp.add(matcher.group(1));
+                String column = matcher.group(1);
+                if (canHave.stream().noneMatch(e -> e.equalsIgnoreCase(checkIfStringToEqual(column)))) {
+                    throw new Exception("Bad field");
+                }
+                temp.add(column);
                 temp.add(matcher.group(2));
                 temp.add(matcher.group(3));
                 res.add(temp);
@@ -137,7 +152,7 @@ public class JavaSchoolStarter {
         Map<String, Object> res;
         Pattern insertPattern = Pattern.compile("insert\\s*values\\s*(.+)", Pattern.CASE_INSENSITIVE);
         Matcher insertMatcher = insertPattern.matcher(command);
-        Pattern selectPattern = Pattern.compile("select\\s*(.+)", Pattern.CASE_INSENSITIVE);
+        Pattern selectPattern = Pattern.compile("select\\s*((.+)|$)", Pattern.CASE_INSENSITIVE);
         Matcher selectMatcher = selectPattern.matcher(command);
         Pattern wherePattern = Pattern.compile("\\bwhere\\b", Pattern.CASE_INSENSITIVE);
         Matcher whereMatcher = wherePattern.matcher(command);
@@ -242,11 +257,14 @@ public class JavaSchoolStarter {
     }
 
     private List<Map<String, Object>> selectWithoutWhere(List<String> fieldsToSelect) {
+        if (fieldsToSelect.size() == 0) {
+            fieldsToSelect = new ArrayList<>(canHave);
+        }
         List<Map<String, Object>> resSelect = new ArrayList<>();
         for (Map<String, Object> in : database) {
             Map<String, Object> temp = new LinkedHashMap<>();
             for (Map.Entry<String, Object> keyValue : in.entrySet()) {
-                if (fieldsToSelect.contains(keyValue.getKey())) {
+                if (fieldsToSelect.stream().anyMatch(e -> e.equalsIgnoreCase(keyValue.getKey()))) {
                     temp.put(keyValue.getKey(), keyValue.getValue());
                 }
             }
@@ -270,7 +288,7 @@ public class JavaSchoolStarter {
     private List<Map<String, Object>> select(List<String> fieldsToSelect, List<List<String>> byWhere) throws Exception {
         List<Map<String, Object>> tempRes = executeQuery(infixToPostfix(byWhere));
         List<Map<String, Object>> res = new ArrayList<>();
-        if (fieldsToSelect.get(0).equals("")) {
+        if (fieldsToSelect.size() == 0) {
             return tempRes;
         }
         for (Map<String, Object> in : tempRes) {
@@ -364,12 +382,17 @@ public class JavaSchoolStarter {
         List<Map<String, Object>> result = new ArrayList<>();
         for (Map<String, Object> record : database) {
             Object fieldValue = null;
-            for(Map.Entry<String, Object> in : record.entrySet()){
-                if(in.getKey().equalsIgnoreCase(field)){
+            for (Map.Entry<String, Object> in : record.entrySet()) {
+                if (in.getKey().equalsIgnoreCase(field)) {
                     fieldValue = in.getValue();
                 }
             }
-            if (fieldValue == null && !operator.equals("!=")) continue;
+            if (((fieldValue instanceof String || fieldValue instanceof Boolean) && (operator.equals(">")
+                    || operator.equals("<") || operator.equals(">=") || operator.equals("<=")))
+                    || !(fieldValue instanceof String) && (operator.equals("like") || operator.equals("ilike"))) {
+                throw new Exception("Unsupported equal");
+            }
+            if (fieldValue == null && !operator.equals("!=") && !operator.equals("=")) continue;
             boolean match = switch (operator) {
                 case "=" -> equalValues(fieldValue, value) == 0;
                 case "!=" -> equalValues(fieldValue, value) != 0;
@@ -401,7 +424,13 @@ public class JavaSchoolStarter {
     }
 
     private int equalValues(Object value1, String value2) throws Exception {
-        if (value1 == null) {
+        if (value1 == null && (value2 == null || value2.equals("null"))) {
+            return 0;
+        } else if (value1 == null || value2 == null) {
+            return -1;
+        } else if (value1.equals("null") && value2.equals("null")) {
+            return 0;
+        } else if (value1.equals("null") || value2.equals("null")) {
             return -1;
         }
         if (value1 instanceof Double) {
@@ -474,7 +503,4 @@ public class JavaSchoolStarter {
         return result;
     }
 
-    public List<Map<String, Object>> getDatabase() {
-        return database;
-    }
 }
