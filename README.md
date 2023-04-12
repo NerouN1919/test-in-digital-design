@@ -1,5 +1,5 @@
 # Пример запросов и результат
--- Пример
+**Пример**
 ```
 javaSchoolStarter.execute("INSERT    VALUES 'id'=0, 'lastName'='test', 'age'=36, 'active'=false, 'cost'=3.6");
             javaSchoolStarter.execute("INSERT VALUES 'id'=10   , 'lastName'=null, 'age'=45, 'active'=true");
@@ -13,7 +13,7 @@ javaSchoolStarter.execute("INSERT    VALUES 'id'=0, 'lastName'='test', 'age'=36,
             javaSchoolStarter.execute("update values 'id' = null, 'lastname' = null, 'active' = null, 'cost' = null, 'age' = null");
             print(javaSchoolStarter.execute("select"));
 ```
--- Результат
+**Результат**
 ```
 | id    | lastName | age | active | cost |
 +-------+----------+-----+--------+------+
