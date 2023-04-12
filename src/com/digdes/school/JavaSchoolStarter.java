@@ -16,6 +16,27 @@ public class JavaSchoolStarter {
                 }
             }
         }
+        List<Map<String, Object>> toRemove = new ArrayList<>();
+        for (Map<String, Object> in : database) {
+            boolean isNull = true;
+            for(Map.Entry<String, Object> column : in.entrySet()) {
+                if (column.getValue() instanceof String){
+                    if(column.getValue().equals("null")){
+                        continue;
+                    }
+                }
+                if (column.getValue() != null) {
+                    isNull = false;
+                    break;
+                }
+            }
+            if(isNull){
+                toRemove.add(in);
+            }
+        }
+        for(Map<String, Object> in : toRemove){
+            database.remove(in);
+        }
     }
 
     private Map<String, Object> toNeedClasses(Map<String, Object> before) throws Exception {
@@ -32,14 +53,22 @@ public class JavaSchoolStarter {
                     default -> throw new Exception("Bad name");
                 }
             }
-            switch (in.getKey().toLowerCase()) {
-                case "id" -> res.put("id", Long.parseLong((String) in.getValue()));
-                case "age" -> res.put("age", Long.parseLong((String) in.getValue()));
-                case "lastname" -> res.put("lastName", checkIfStringToEqual(String.valueOf(in.getValue())));
-                case "cost" -> res.put("cost", Double.parseDouble((String) in.getValue()));
-                case "active" -> res.put("active", Boolean.parseBoolean((String) in.getValue()));
-                default -> throw new Exception("Bad name");
+            if(in.getKey().equalsIgnoreCase("active") && in.getValue() == null){
+                res.put("active", null);
+                continue;
             }
+            try {
+                switch (in.getKey().toLowerCase()) {
+                    case "id" -> res.put("id", Long.parseLong(String.valueOf(in.getValue())));
+                    case "age" -> res.put("age", Long.parseLong(String.valueOf(in.getValue())));
+                    case "lastname" -> res.put("lastName", checkIfStringToEqual(String.valueOf(in.getValue())));
+                    case "cost" -> res.put("cost", Double.parseDouble(String.valueOf(in.getValue())));
+                    case "active" -> res.put("active", Boolean.parseBoolean(String.valueOf(in.getValue())));
+                    default -> throw new Exception("Bad name");
+                }
+            } catch (NumberFormatException ignored) {
+            }
+
         }
         return res;
     }
